@@ -248,6 +248,7 @@ class LxNavCubit extends Cubit<LxNavDataState> {
           message.replaceAll(LxNav.DEVICE_INFO_ANSWER, "").split(',');
       if (infoValues.length == LxNav.DEVICE_INFO_LABELS.length) {
         emit(LxNavInfoState(LxNav.DEVICE_INFO_LABELS, infoValues));
+        debugPrint("Emitted LxNavInfoState");
       } else {
         emit(LxNavErrorState(
             "UH-OH. The number of device info fields doesn't match the expected number."));

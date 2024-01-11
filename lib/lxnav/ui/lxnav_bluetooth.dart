@@ -12,15 +12,6 @@ import '../../app/permission_utils.dart';
 import '../bloc/lxnav_cubit.dart';
 import '../bloc/lxnav_data_state.dart';
 
-class LxNavBluetooth extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider<LxNavCubit>(
-      create: (BuildContext context) => LxNavCubit(),
-      child: LxNavWidget(),
-    );
-  }
-}
 
 class LxNavWidget extends StatefulWidget {
   @override
@@ -28,7 +19,7 @@ class LxNavWidget extends StatefulWidget {
 }
 
 class _LxNavWidgetState extends State<LxNavWidget>
-    with AfterLayoutMixin<LxNavWidget> {
+    with AfterLayoutMixin<LxNavWidget>, AutomaticKeepAliveClientMixin<LxNavWidget> {
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   bool _btEnabled = false;
   bool _isWorking = false;
@@ -128,12 +119,9 @@ class _LxNavWidgetState extends State<LxNavWidget>
             Expanded(
               child: Text(
                 'Enable Bluetooth',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
+                style: textStyleBlackFontSize18,
                 ),
               ),
-            ),
             Switch(
                 value: _btEnabled,
                 // Add state to determine if bluetooth enabled or not
@@ -164,7 +152,8 @@ class _LxNavWidgetState extends State<LxNavWidget>
     }, builder: (context, state) {
       if (!_btEnabled || _pairedDevices.isEmpty) {
         return Flexible(
-          child: (Text('None - Is Bluetooth Turned on?')),
+          child: (Text('NONE - Is Bluetooth turned on?',
+              style:textStyleBlackFontSize18)),
         );
       } else {
         return Padding(
@@ -386,4 +375,8 @@ class _LxNavWidgetState extends State<LxNavWidget>
       ),
     );
   }
+
+  @override
+  // TODO: implement wantKeepAlive
+  bool get wantKeepAlive => true;
 }

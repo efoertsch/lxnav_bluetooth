@@ -43,12 +43,12 @@ class LxNav {
     "Remaining time",
     "Serial number",
     "Security key valid",
-    "Gps status",
-    "Gps char count"
+    "GPS status",
+    "GPS count"
   ];
 
   static List<int> getLxNavDeviceInfo() {
-    return getLxNavString(DEVICE_INFO);
+    return getLxNavString(DEVICE_INFO_REQUEST);
   }
 
   static List<int> getLogBookSize() {

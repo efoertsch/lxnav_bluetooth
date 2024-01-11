@@ -4,6 +4,6 @@ const textStyleBoldBlackFontSize14 =
     TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 14);
 
 const textStyleBoldBlackFontSize18 =
-TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18);
+    TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18);
 
-
+const textStyleBlackFontSize18 = TextStyle(color: Colors.black, fontSize: 18);

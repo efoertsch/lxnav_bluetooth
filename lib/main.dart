@@ -1,19 +1,15 @@
-import 'package:after_layout/after_layout.dart';
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lxnav_bluetooth/app/permission_utils.dart';
+import 'package:lxnav_bluetooth/lxnav/bloc/lxnav_data_state.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'lxnav/bloc/lxnav_cubit.dart';
 import 'lxnav/ui/lxnav_bluetooth.dart';
 
 void main() => runApp(LxNav());
 
-class LxNav extends StatefulWidget {
-  @override
-  State<LxNav> createState() => _LxNavState();
-}
-
-class _LxNavState extends State<LxNav> {
+class LxNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -34,49 +30,65 @@ class LxNavTabScreen extends StatefulWidget {
 }
 
 class _LxNavTabScreenState extends State<LxNavTabScreen>
-    with TickerProviderStateMixin{
+    with TickerProviderStateMixin {
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
-  late final TabController _tabController;
+  late TabController _tabController;
+  bool displayAllTabs = false;
 
-  final List<Tab> _tab = [
-    Tab(text: 'Connect'),
-    Tab(text: 'Pilot'),
-    Tab(text: 'Task'),
+  static final List<String> TAB_NAMES = [
+    "MAIN",
+    "PILOT",
+    "LOGBOOK",
+    "TASK",
+    "SETTINGS"
   ];
+  final List<Tab> _tabLabels = [Tab(text: TAB_NAMES[1])]; // always present
+  final List<Widget> _tabWidgets = [
+    Center(child: LxNavWidget())
+  ]; // always present
+  int selectedTabIndex = 0;
 
   @override
   void initState() {
+    _tabController = TabController(
+        length: _tabWidgets.length,
+        vsync: this,
+        initialIndex: selectedTabIndex);
     super.initState();
-    _tabController = TabController(length: _tab.length, vsync: this);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: getAppBar(),
-      body: _getBody(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-  }
-
-  TabBarView _getBody() {
-    return TabBarView(
-      controller: _tabController,
-      children: <Widget>[
-        Center(
-          child: LxNavBluetooth(),
-        ),
-        Center(
-          child: Text("It's rainy here"),
-        ),
-        Center(
-          child: Text("It's sunny here"),
-        ),
-      ],
+    return BlocConsumer<LxNavCubit, LxNavDataState>(
+      listener: (context, state) {
+        if (state is LxNavPairedDevicesState) {
+          if (state.connectedDevice != null &&
+              state.connectedDevice!.isConnected) {
+            displayAllTabs = true;
+          } else {
+            displayAllTabs = false;
+          }
+          if (state is LxNavDeviceConnectedState) {
+            if (state.connectedDevice != null &&
+                state.connectedDevice!.isConnected) {
+              displayAllTabs = true;
+            } else {
+              displayAllTabs = false;
+            }
+          }
+        }
+        if (state is LxNavPairedDevicesState ||
+            state is LxNavDeviceConnectedState) {
+          _updateTabBarLabelsAndWidgets();
+          _updateTabController();
+        }
+      },
+      builder: (BuildContext context, LxNavDataState state) {
+        return Scaffold(
+          appBar: getAppBar(),
+          body: _getBody(),
+        );
+      },
     );
   }
 
@@ -88,19 +100,71 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
       ),
       backgroundColor: Colors.blue,
       actions: _getMenu(),
-      bottom: TabBar(
-        controller: _tabController,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white70,
-        tabs: <Widget>[
-          Tab(
-            text: "Connection",
-          ),
-          Tab(text: "Pilot"),
-          Tab(text: "Logbook"),
-        ],
-      ),
+      bottom: _getTabBar(),
     );
+  }
+
+  TabBar _getTabBar() {
+    return TabBar(
+      isScrollable: true,
+      controller: _tabController,
+      labelColor: Colors.white,
+      unselectedLabelColor: Colors.white70,
+      indicator: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).primaryColor,
+            width: 2,
+          ),
+        ),
+      ),
+      tabs: _tabLabels,
+    );
+  }
+
+  Widget _getBody() {
+    return TabBarView(
+      physics: AlwaysScrollableScrollPhysics(),
+      controller: _tabController,
+      children: _tabWidgets,
+    );
+  }
+
+  void _updateTabBarLabelsAndWidgets() {
+    if (_tabLabels.length > 1) {
+      _tabLabels.removeRange(1, _tabLabels.length);
+    }
+    if (_tabWidgets.length > 1) {
+      // never remove first tab widget
+      _tabWidgets.removeRange(1, _tabWidgets.length);
+    }
+    if (displayAllTabs) {
+      for (var i = 1; i < TAB_NAMES.length; ++i) {
+        _tabLabels.add(Tab(
+            text: TAB_NAMES[i],
+            //child: GestureDetector(onTap: () => _tabController.animateTo(i)))
+            ));
+      }
+      // TODO - replace with real widgets when you get there
+      _tabWidgets.add(Center(
+        child: Text(TAB_NAMES[1]),
+      ));
+      _tabWidgets.add(Center(
+        child: Text(TAB_NAMES[2]),
+      ));
+      _tabWidgets.add(Center(
+        child: Text(TAB_NAMES[3]),
+      ));
+      _tabWidgets.add(Center(
+        child: Text(TAB_NAMES[4]),
+      ));
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _tabController.dispose();
   }
 
   List<Widget> _getMenu() {
@@ -118,13 +182,18 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
         },
       ),
       PopupMenuButton(
-          icon: Icon(Icons.more_vert, color:Colors.white),
+          icon: Icon(Icons.more_vert, color: Colors.white),
           itemBuilder: (BuildContext bc) {
             return [
               PopupMenuItem(
-                child: Text("Settings"),
+                child: Text("App Settings"),
                 value: "Settings",
                 onTap: openAppSettingsFunction,
+              ),
+              PopupMenuItem(
+                child: Text("Device Settings"),
+                value: "Settings",
+                onTap: openDeviceSettingsFunction,
               )
             ];
           }),
@@ -139,7 +208,7 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
         permissionDeniedFunction: openAppSettingsFunction);
   }
 
-  // Request Bluetooth permission from the user
+// Request Bluetooth permission from the user
   void enableBluetooth() async {
     BlocProvider.of<LxNavCubit>(context).getPairedDeviceList();
   }
@@ -148,8 +217,31 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
     await openAppSettings();
   }
 
-  // Method to show a Snackbar,
-  // taking message as the text
+  Future<void> openDeviceSettingsFunction() async {
+    try {
+      await AppSettings.openAppSettings(
+          type: AppSettingsType.bluetooth, asAnotherTask: true);
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+  }
+
+  void _updateTabController() {
+    _tabController.dispose();
+    try {
+      _tabController = TabController(
+        length: _tabWidgets.length,
+        vsync: this,
+        initialIndex: selectedTabIndex,
+      );
+      //setState(() {});
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+  }
+
+// Method to show a Snackbar,
+// taking message as the text
   void showSnackbar(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(

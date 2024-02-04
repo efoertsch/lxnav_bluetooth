@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+/// This class contains LxNav specific methods and fields for communicating with LxNav devices
 class LxNav {
   /// From LxNav Data Port Specification Document 2022-07-19  V1.04
   ///  All commands must start with a “$” (0x24) sign and end with a “*” (0x2A)
@@ -21,6 +22,15 @@ class LxNav {
   static const String LOGBOOK_SIZE = "PLXVC,LOGBOOKSIZE";
   static const String LOGBOOK_SIZE_REQUEST = LOGBOOK_SIZE + ",R";
   static const String LOGBOOK_SIZE_ANSWER = LOGBOOK_SIZE + ",A,";
+
+  static const String LOGBOOK = "PLXVC,LOGBOOK";
+  static const String LOGBOOK_REQUEST = LOGBOOK + ",R,";
+  static const String LOGBOOK_ANSWER = LOGBOOK + ",A,";
+
+  static const String FLIGHT = "PLXVC,FLIGHT";
+  static const String FLIGHT_REQUEST = FLIGHT + ",R";
+  static const String FLIGHT_ANSWER =FLIGHT + ",A,";
+
 
   static const List<int> crlf = [13, 10]; // '0x0D0A' <CR><LF>
   static const int dollarSign = 36; //  $ 0x24
@@ -53,6 +63,12 @@ class LxNav {
 
   static List<int> getLogBookSize() {
     return getLxNavString(LOGBOOK_SIZE_REQUEST);
+  }
+
+  /// Get flight logs. Start at 1 to and end must be
+  /// logbook size + 1
+  static List<int> getFlightLogs(int start, int end) {
+    return getLxNavString(LOGBOOK_REQUEST + start.toString() + "," +  end.toString());
   }
 
   static List<int> getLxNavString(message) {
@@ -92,15 +108,25 @@ class LxNav {
   static (bool, String) validateMessage(String input) {
     // $...*(2 byte checksum)\r\n
     int messageLength = input.length;
-    if (messageLength < 7)
-      return (false, ""); // must have at least 1 char in message
-    // remove leading $ and trailing checksum (2 bytes) <CR><LF>
-    String message = input.substring(1, messageLength - 4);
-    String checksum = input.substring(messageLength - 4, messageLength - 2);
-    // remove the $ start char and last 5  (last 5 are *checksum\r\n , e.g. *6B<CR><LF>)
-    String dataString = input.substring(1, input.length - 5);
-    var xor = xorCommand(utf8.encode(dataString));
+    // must have at least 1 char in message
+    if (messageLength < 7) {
+      return (false, input);
+    }
+    // I think if you sent data transfer too high, the data stream ended up getting
+    // more than 1 message (or bug on nano end).
+    // So just take first message as delimited by \r\n
+    int eom = input.indexOf('\r\n');
+    if (eom == -1){
+      return(false, input);
+    }
+    // remove leading $ and trailing *, checksum (2 bytes), and <CR><LF>
+    String message = input.substring(1, eom );
+    // get the 2 checksum digits
+    String checksum = message.substring(message.length - 2);
+    // remove last 3  (last 3 are *checksum e.g. *6B)
+    String validationString = message.substring(0,message.length - 3);
+    var xor = xorCommand(utf8.encode(validationString));
     bool valid = (String.fromCharCodes(xor) == checksum);
-    return (valid, message);
+    return (valid, validationString);
   }
 }

@@ -1,11 +1,13 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lxnav_bluetooth/app/common_widgets.dart';
 import 'package:lxnav_bluetooth/app/permission_utils.dart';
 import 'package:lxnav_bluetooth/lxnav/bloc/lxnav_data_state.dart';
+import 'package:lxnav_bluetooth/lxnav/ui/lxnav_logbook.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'lxnav/bloc/lxnav_cubit.dart';
-import 'lxnav/ui/lxnav_bluetooth.dart';
+import 'lxnav/ui/lxnav_device.dart';
 
 void main() => runApp(LxNav());
 
@@ -33,7 +35,8 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
     with TickerProviderStateMixin {
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   late TabController _tabController;
-  bool displayAllTabs = false;
+  bool _displayAllTabs = false;
+  GlobalKey _redrawKey = GlobalKey();
 
   static final List<String> TAB_NAMES = [
     "MAIN",
@@ -42,9 +45,9 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
     "TASK",
     "SETTINGS"
   ];
-  final List<Tab> _tabLabels = [Tab(text: TAB_NAMES[1])]; // always present
+  final List<Tab> _tabLabels = [Tab(text: TAB_NAMES[0])]; // always present
   final List<Widget> _tabWidgets = [
-    Center(child: LxNavWidget())
+    Center(child: LxNavDevice())
   ]; // always present
   int selectedTabIndex = 0;
 
@@ -54,42 +57,17 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
         length: _tabWidgets.length,
         vsync: this,
         initialIndex: selectedTabIndex);
+    debugPrint("main.initState. _tabWidgets.length : ${_tabWidgets.length} "
+        "_tabs.length : ${_tabLabels.length} ");
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<LxNavCubit, LxNavDataState>(
-      listener: (context, state) {
-        if (state is LxNavPairedDevicesState) {
-          if (state.connectedDevice != null &&
-              state.connectedDevice!.isConnected) {
-            displayAllTabs = true;
-          } else {
-            displayAllTabs = false;
-          }
-          if (state is LxNavDeviceConnectedState) {
-            if (state.connectedDevice != null &&
-                state.connectedDevice!.isConnected) {
-              displayAllTabs = true;
-            } else {
-              displayAllTabs = false;
-            }
-          }
-        }
-        if (state is LxNavPairedDevicesState ||
-            state is LxNavDeviceConnectedState) {
-          _updateTabBarLabelsAndWidgets();
-          _updateTabController();
-        }
-      },
-      builder: (BuildContext context, LxNavDataState state) {
-        return Scaffold(
-          appBar: getAppBar(),
-          body: _getBody(),
+    return Scaffold(
+        appBar: getAppBar(),
+        body: _getBody(),
         );
-      },
-    );
   }
 
   AppBar getAppBar() {
@@ -105,6 +83,8 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
   }
 
   TabBar _getTabBar() {
+    debugPrint(
+        "main._getTabBar. _tabController.length:  ${_tabController.length}");
     return TabBar(
       isScrollable: true,
       controller: _tabController,
@@ -123,10 +103,21 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
   }
 
   Widget _getBody() {
-    return TabBarView(
-      physics: AlwaysScrollableScrollPhysics(),
-      controller: _tabController,
-      children: _tabWidgets,
+    debugPrint(
+        "main._getBody() creating TabBarView. _tabController.length:  ${_tabController.length}");
+    return Column(
+      children: [
+        Expanded(
+          child: TabBarView(
+            // key: Key(Random().nextDouble().toString()), // to prevent crash when # tabs changes
+            physics: AlwaysScrollableScrollPhysics(),
+           controller: _tabController,
+            children: _tabWidgets,
+          ),
+        ),
+        _getConnectionListener(),
+        _widgetForErrorMessages(),
+      ],
     );
   }
 
@@ -138,19 +129,19 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
       // never remove first tab widget
       _tabWidgets.removeRange(1, _tabWidgets.length);
     }
-    if (displayAllTabs) {
+    if (_displayAllTabs) {
       for (var i = 1; i < TAB_NAMES.length; ++i) {
         _tabLabels.add(Tab(
-            text: TAB_NAMES[i],
-            //child: GestureDetector(onTap: () => _tabController.animateTo(i)))
-            ));
+          text: TAB_NAMES[i],
+          //child: GestureDetector(onTap: () => _tabController.animateTo(i)))
+        ));
       }
       // TODO - replace with real widgets when you get there
       _tabWidgets.add(Center(
         child: Text(TAB_NAMES[1]),
       ));
       _tabWidgets.add(Center(
-        child: Text(TAB_NAMES[2]),
+        child: LxNavLogbook(),
       ));
       _tabWidgets.add(Center(
         child: Text(TAB_NAMES[3]),
@@ -200,6 +191,20 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
     ];
   }
 
+  Widget _widgetForErrorMessages() {
+    return BlocConsumer<LxNavCubit, LxNavDataState>(listener: (context, state) {
+      if (state is LxNavErrorState) {
+        CommonWidgets.showErrorDialog(context, "UH-OH", state.errorMsg);
+      }
+    }, builder: (context, state) {
+      if (state is LxNavErrorState) {
+        return SizedBox.shrink();
+      } else {
+        return SizedBox.shrink();
+      }
+    });
+  }
+
   void checkForBluetoothConnectPermission() async {
     await checkPermission(
         permission: Permission.bluetoothConnect,
@@ -226,18 +231,56 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
     }
   }
 
-  void _updateTabController() {
-    _tabController.dispose();
-    try {
-      _tabController = TabController(
-        length: _tabWidgets.length,
-        vsync: this,
-        initialIndex: selectedTabIndex,
-      );
-      //setState(() {});
-    } catch (e) {
-      debugPrint(e.toString());
-    }
+  Widget _getConnectionListener() {
+    return BlocListener<LxNavCubit, LxNavDataState>(
+      listener: (context, state) {
+        if (state is LxNavPairedDevicesState) {
+          if (state.connectedDevice != null &&
+              state.connectedDevice!.isConnected) {
+            _displayAllTabs = true;
+          } else {
+            _displayAllTabs = false;
+          }
+        }
+        if (state is LxNavDeviceConnectedState) {
+          if (state.connectedDevice != null &&
+              state.connectedDevice!.isConnected) {
+            _displayAllTabs = true;
+          } else {
+            _displayAllTabs = false;
+          }
+        }
+        if (state is LxNavPairedDevicesState ||
+            state is LxNavDeviceConnectedState) {
+          _updateTabController();
+        }
+      },
+      child: SizedBox.shrink(),
+    );
+  }
+
+  void _updateTabController() async {
+    Future.delayed(Duration(milliseconds: 60), () {
+      setState(() {
+        _updateTabBarLabelsAndWidgets();
+        debugPrint(
+            "main._updateTabController. updating tab labels and tab widget");
+        _tabController.dispose();
+        try {
+          _tabController = TabController(
+            length: _tabWidgets.length,
+            vsync: this,
+            initialIndex: selectedTabIndex,
+          );
+          debugPrint(
+              "main._updateTabController. _tabWidgets.length : ${_tabWidgets.length} "
+              "_tabs.length : ${_tabLabels.length} ");
+        } catch (e) {
+          debugPrint(e.toString());
+        }
+        //_redrawKey = GlobalKey();
+      });
+    });
   }
 
 // Method to show a Snackbar,

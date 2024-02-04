@@ -12,14 +12,15 @@ import '../../app/permission_utils.dart';
 import '../bloc/lxnav_cubit.dart';
 import '../bloc/lxnav_data_state.dart';
 
-
-class LxNavWidget extends StatefulWidget {
+class LxNavDevice extends StatefulWidget {
   @override
-  _LxNavWidgetState createState() => _LxNavWidgetState();
+  _LxNavDeviceState createState() => _LxNavDeviceState();
 }
 
-class _LxNavWidgetState extends State<LxNavWidget>
-    with AfterLayoutMixin<LxNavWidget>, AutomaticKeepAliveClientMixin<LxNavWidget> {
+class _LxNavDeviceState extends State<LxNavDevice>
+    with AfterLayoutMixin<LxNavDevice> {
+  //, AutomaticKeepAliveClientMixin<LxNavDevice>
+
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   bool _btEnabled = false;
   bool _isWorking = false;
@@ -28,7 +29,7 @@ class _LxNavWidgetState extends State<LxNavWidget>
 
   @override
   void afterFirstLayout(BuildContext context) {
-    BlocProvider.of<LxNavCubit>(context).getBluetoothState();
+    BlocProvider.of<LxNavCubit>(context).enableBluetooth();
   }
 
   @override
@@ -49,7 +50,6 @@ class _LxNavWidgetState extends State<LxNavWidget>
             _getPairedDevicesHeaderText(),
             _getDeviceWidgetRow(),
             _getLxNavInfoWidget(),
-            _widgetForErrorMessages(),
           ],
         ),
         _getConnectionProgressIndicator(),
@@ -120,8 +120,8 @@ class _LxNavWidgetState extends State<LxNavWidget>
               child: Text(
                 'Enable Bluetooth',
                 style: textStyleBlackFontSize18,
-                ),
               ),
+            ),
             Switch(
                 value: _btEnabled,
                 // Add state to determine if bluetooth enabled or not
@@ -153,7 +153,7 @@ class _LxNavWidgetState extends State<LxNavWidget>
       if (!_btEnabled || _pairedDevices.isEmpty) {
         return Flexible(
           child: (Text('NONE - Is Bluetooth turned on?',
-              style:textStyleBlackFontSize18)),
+              style: textStyleBlackFontSize18)),
         );
       } else {
         return Padding(
@@ -247,19 +247,6 @@ class _LxNavWidgetState extends State<LxNavWidget>
     BlocProvider.of<LxNavCubit>(context).getBluetoothState();
   }
 
-  // Method to show a Snackbar,
-  // taking message as the text
-  void showSnackbar(String message) {
-    _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: new Text(
-          message,
-        ),
-        duration: const Duration(seconds: 4),
-      ),
-    );
-  }
-
   void checkForBluetoothConnectPermission() async {
     await checkPermission(
         permission: Permission.bluetoothConnect,
@@ -300,20 +287,6 @@ class _LxNavWidgetState extends State<LxNavWidget>
     }
   }
 
-  Widget _widgetForErrorMessages() {
-    return BlocConsumer<LxNavCubit, LxNavDataState>(listener: (context, state) {
-      if (state is LxNavErrorState) {
-        CommonWidgets.showErrorDialog(context, "UH-OH", state.errorMsg);
-      }
-    }, builder: (context, state) {
-      if (state is LxNavErrorState) {
-        return SizedBox.shrink();
-      } else {
-        return SizedBox.shrink();
-      }
-    });
-  }
-
   Widget _getLxNavInfoWidget() {
     return BlocConsumer<LxNavCubit, LxNavDataState>(
         listener: (context, state) {},
@@ -324,6 +297,7 @@ class _LxNavWidgetState extends State<LxNavWidget>
         },
         builder: (context, state) {
           if (state is LxNavInfoState) {
+            //_pollDevice();  // get invalid messages
             return Visibility(
               visible:
                   (_connectedDevice != null && _connectedDevice!.isConnected),
@@ -376,7 +350,15 @@ class _LxNavWidgetState extends State<LxNavWidget>
     );
   }
 
-  @override
-  // TODO: implement wantKeepAlive
-  bool get wantKeepAlive => true;
+// @override
+// // TODO: implement wantKeepAlive
+// bool get wantKeepAlive => true;
+
+  void _pollDevice() {
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (_connectedDevice?.isConnected ?? false) {
+        BlocProvider.of<LxNavCubit>(context).getLxNavDeviceInfo();
+      }
+    });
+  }
 }

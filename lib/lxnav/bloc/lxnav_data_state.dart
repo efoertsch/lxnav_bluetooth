@@ -1,6 +1,5 @@
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
-import '../lxnav_igc_file_info.dart';
+import '../data/lxnav_logbook_entry.dart';
 
 abstract class LxNavDataState {
   const LxNavDataState();
@@ -16,6 +15,7 @@ class LxNavBtIsWorkingState extends LxNavDataState {
   LxNavBtIsWorkingState(this.isWorking);
 }
 
+// Bluetooth on/off
 class LxNavBtEnabledState extends LxNavDataState {
   bool btEnabled;
 
@@ -49,7 +49,7 @@ class LxNavPairedDevicesState extends LxNavDataState {
 }
 
 class LxNavLogBookState extends LxNavDataState {
-  List<LxNavIgcFileInfo> logbook;
+  List<LxNavLogbookEntry> logbook;
 
   LxNavLogBookState(this.logbook);
 }

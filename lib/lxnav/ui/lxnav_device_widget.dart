@@ -128,6 +128,11 @@ class _LxNavDeviceWidgetState extends State<LxNavDeviceWidget>
                     await BlocProvider.of<LxNavCubit>(context)
                         .enableBluetooth();
                   } else {
+                    if (_connectedDevice != null &&
+                        _connectedDevice!.isConnected) {
+                      await BlocProvider.of<LxNavCubit>(context)
+                          .disconnectDevice(_connectedDevice!);
+                    }
                     await BlocProvider.of<LxNavCubit>(context)
                         .disableBluetooth();
                   }
@@ -347,5 +352,4 @@ class _LxNavDeviceWidgetState extends State<LxNavDeviceWidget>
       ),
     );
   }
-
 }

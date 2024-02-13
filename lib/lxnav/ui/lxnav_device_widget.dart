@@ -6,22 +6,20 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../app/common_widgets.dart';
 import '../../app/custom_styles.dart';
 import '../../app/permission_utils.dart';
 import '../bloc/lxnav_cubit.dart';
 import '../bloc/lxnav_data_state.dart';
 
-class LxNavDevice extends StatefulWidget {
+class LxNavDeviceWidget extends StatefulWidget {
   @override
-  _LxNavDeviceState createState() => _LxNavDeviceState();
+  _LxNavDeviceWidgetState createState() => _LxNavDeviceWidgetState();
 }
 
-class _LxNavDeviceState extends State<LxNavDevice>
-    with AfterLayoutMixin<LxNavDevice> {
+class _LxNavDeviceWidgetState extends State<LxNavDeviceWidget>
+    with AfterLayoutMixin<LxNavDeviceWidget> {
   //, AutomaticKeepAliveClientMixin<LxNavDevice>
 
-  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   bool _btEnabled = false;
   bool _isWorking = false;
   List<BluetoothDevice> _pairedDevices = [];
@@ -350,15 +348,4 @@ class _LxNavDeviceState extends State<LxNavDevice>
     );
   }
 
-// @override
-// // TODO: implement wantKeepAlive
-// bool get wantKeepAlive => true;
-
-  void _pollDevice() {
-    Future.delayed(Duration(milliseconds: 500), () {
-      if (_connectedDevice?.isConnected ?? false) {
-        BlocProvider.of<LxNavCubit>(context).getLxNavDeviceInfo();
-      }
-    });
-  }
 }

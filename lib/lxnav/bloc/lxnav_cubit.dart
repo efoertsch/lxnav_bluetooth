@@ -18,10 +18,7 @@ class LxNavCubit extends Cubit<LxNavDataState> {
 
   // Track the Bluetooth connection with the remote device
   BluetoothConnection? _connection;
-  int _deviceState = 0;
   bool isDisconnecting = false;
-  bool _startedDisconnect = false;
-
   List<BluetoothDevice> _bondedDevices = [];
 
   String _processCommand = "";
@@ -29,15 +26,10 @@ class LxNavCubit extends Cubit<LxNavDataState> {
   // To track whether the device is still connected to Bluetooth
   bool get _isConnected => _connection != null && _connection!.isConnected;
 
-  // Define some variables, which will be required later
-  List<BluetoothDevice> _deviceList = [];
   BluetoothDevice? _selectedDevice;
-  bool _connected = false;
-
   List<LxNavLogbookEntry> _logbookEntries = [];
   int _logbookSize = 0;
-  int _startFlight = 0;
-  int _endFlight = 0;
+  String partialData = '';
 
   LxNavCubit() : super(LxNavInitialState()) {
     enableBluetooth();
@@ -106,7 +98,11 @@ class LxNavCubit extends Cubit<LxNavDataState> {
         _markDeviceAsConnected(connectingToDevice, true);
         await _sendBondedDeviceList(connectingToDevice);
         await getLxNavDeviceInfo();
-        _connection!.input!.listen(_processBtData).onDone(() {
+        _connection!.input!
+            .map((Uint8List bluetoothCommData) =>
+                String.fromCharCodes(bluetoothCommData))
+            .listen(_processBtData)
+            .onDone(() {
           _markDeviceAsConnected(connectingToDevice, false);
           _sendBondedDeviceList(connectingToDevice);
         });
@@ -140,8 +136,6 @@ class LxNavCubit extends Cubit<LxNavDataState> {
     _markDeviceAsConnected(bluetoothDevice, false);
     _indicateWorking(false);
   }
-
-
 
   /// If currentDevice not null, set that device to the one the ui should display
   ///  as selected.
@@ -182,13 +176,11 @@ class LxNavCubit extends Cubit<LxNavDataState> {
         currentSelectedDevice = device;
       }
     }
-    BluetoothDevice? connectedDevice = _checkIfDeviceConnected(uiList,
-        selectedDevice: currentSelectedDevice);
-    emit(LxNavPairedDevicesState(
-        uiList,
-        _checkIfDeviceConnected(uiList,
-            selectedDevice: connectedDevice)));
-    if (connectedDevice != null && connectedDevice.isConnected){
+    BluetoothDevice? connectedDevice =
+        _checkIfDeviceConnected(uiList, selectedDevice: currentSelectedDevice);
+    emit(LxNavPairedDevicesState(uiList,
+        _checkIfDeviceConnected(uiList, selectedDevice: connectedDevice)));
+    if (connectedDevice != null && connectedDevice.isConnected) {
       getLxNavDeviceInfo();
     }
   }
@@ -256,27 +248,37 @@ class LxNavCubit extends Cubit<LxNavDataState> {
 
   // anything coming back from the communicator will be sent on a stream
   // so process it here
-  void _processBtData(Uint8List bluetoothCommData) {
-    // doesn't handle backspace or delete - see original code if needed
-    String dataString = String.fromCharCodes(bluetoothCommData);
+  void _processBtData(final String dataString) {
     debugPrint("String from LxDevice: " + dataString);
-    (bool, String) data = LxNav.validateMessage(dataString);
-    if (data.$1) {
-      switch (_processCommand) {
-        case LxNav.DEVICE_INFO:
-          _processDeviceInfo(data.$1, data.$2);
-          break;
-        case LxNav.LOGBOOK_SIZE:
-          _processLogbookSize(data.$1, data.$2);
-          break;
-        case LxNav.LOGBOOK:
-          _processLogbookEntry(data.$1, data.$2);
-          break;
+    partialData += dataString;
+    bool endsWithCrLf = partialData.endsWith(LxNav.CR_LF);
+    var dataLines = partialData.split(LxNav.CR_LF);
+    // only process full data lines (that ended with CR_LF)
+    for (int i = 0; i < dataLines.length + (endsWithCrLf ? 0 : -1); ++i) {
+      if (dataLines[i].isNotEmpty) {
+        (bool, String) data = LxNav.validateMessage(dataLines[i]);
+        // data.$1 is true if valid data
+        if (data.$1) {
+          switch (_processCommand) {
+            case LxNav.DEVICE_INFO:
+              _processDeviceInfo(data.$1, data.$2);
+              break;
+            case LxNav.LOGBOOK_SIZE:
+              _processLogbookSize(data.$1, data.$2);
+              break;
+            case LxNav.LOGBOOK:
+              _processLogbookEntry(data.$1, data.$2);
+              break;
+          }
+        } else {
+          emit(LxNavErrorState("UH-OH. Invalid message received: ${data.$2}"));
+        }
       }
     }
-    else {
-       emit(LxNavErrorState(
-          "UH-OH. Invalid message received: ${data.$2}"));
+    if (endsWithCrLf) {
+      partialData = '';
+    } else {
+      partialData = dataLines[dataLines.length - 1];
     }
   }
 

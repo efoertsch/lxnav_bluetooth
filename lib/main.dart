@@ -7,7 +7,7 @@ import 'package:lxnav_bluetooth/lxnav/bloc/lxnav_data_state.dart';
 import 'package:lxnav_bluetooth/lxnav/ui/lxnav_logbook.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'lxnav/bloc/lxnav_cubit.dart';
-import 'lxnav/ui/lxnav_device.dart';
+import 'lxnav/ui/lxnav_device_widget.dart';
 
 void main() => runApp(LxNav());
 
@@ -36,7 +36,6 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
   final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
   late TabController _tabController;
   bool _displayAllTabs = false;
-  GlobalKey _redrawKey = GlobalKey();
 
   static final List<String> TAB_NAMES = [
     "MAIN",
@@ -47,7 +46,7 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
   ];
   final List<Tab> _tabLabels = [Tab(text: TAB_NAMES[0])]; // always present
   final List<Widget> _tabWidgets = [
-    Center(child: LxNavDevice())
+    Center(child: LxNavDeviceWidget())
   ]; // always present
   int selectedTabIndex = 0;
 
@@ -260,7 +259,7 @@ class _LxNavTabScreenState extends State<LxNavTabScreen>
   }
 
   void _updateTabController() async {
-    Future.delayed(Duration(milliseconds: 60), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
         _updateTabBarLabelsAndWidgets();
         debugPrint(

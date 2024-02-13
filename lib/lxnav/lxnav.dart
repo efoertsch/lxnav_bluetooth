@@ -15,6 +15,7 @@ class LxNav {
   ///  Checksum reference logic  https://forum.arduino.cc/t/nmea-checksums-explained/1046083
   ///
 
+  static const String CR_LF = "\r\n";
   static const String DEVICE_INFO = "PLXVC,INFO";
   static const String DEVICE_INFO_REQUEST = DEVICE_INFO + ",R";
   static const String DEVICE_INFO_ANSWER = DEVICE_INFO + ",A,";
@@ -105,26 +106,18 @@ class LxNav {
     // return hexString.padLeft(2, '0');
   }
 
+  // \r\n must be removed before validating input
+  // so input in format of $...*(2 byte checksum)
   static (bool, String) validateMessage(String input) {
-    // $...*(2 byte checksum)\r\n
     int messageLength = input.length;
     // must have at least 1 char in message
-    if (messageLength < 7) {
+    if (messageLength < 5) {
       return (false, input);
     }
-    // I think if you sent data transfer too high, the data stream ended up getting
-    // more than 1 message (or bug on nano end).
-    // So just take first message as delimited by \r\n
-    int eom = input.indexOf('\r\n');
-    if (eom == -1){
-      return(false, input);
-    }
-    // remove leading $ and trailing *, checksum (2 bytes), and <CR><LF>
-    String message = input.substring(1, eom );
     // get the 2 checksum digits
-    String checksum = message.substring(message.length - 2);
-    // remove last 3  (last 3 are *checksum e.g. *6B)
-    String validationString = message.substring(0,message.length - 3);
+    String checksum = input.substring(input.length - 2);
+    // validate excluding the starting $ and ending *(checksum)
+    String validationString = input.substring(1,input.length - 3);
     var xor = xorCommand(utf8.encode(validationString));
     bool valid = (String.fromCharCodes(xor) == checksum);
     return (valid, validationString);

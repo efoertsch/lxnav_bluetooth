@@ -181,6 +181,12 @@ class LxNavCubit extends Cubit<LxNavDataState> {
     emit(LxNavPairedDevicesState(uiList,
         _checkIfDeviceConnected(uiList, selectedDevice: connectedDevice)));
     if (connectedDevice != null && connectedDevice.isConnected) {
+      // device may still be bt connected but app doesn't know it yet so
+      // check if connected, reconnect if needed
+      // (Does this only occur in debugging?)
+      if (!_isConnected) {
+        await connectToDevice(connectedDevice);
+      }
       getLxNavDeviceInfo();
     }
   }
